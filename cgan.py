@@ -1,5 +1,6 @@
 import numpy as np  
 import os 
+import time 
 import argparse
 import torch 
 from torch.autograd import Variable
@@ -13,7 +14,7 @@ import torchvision.utils as vutils
 
 
 parser = argparse.ArgumentParser()
-#parser.add_argument('--dataset', required=True, help='cifar10 | lsun | mnist')
+parser.add_argument('--dataset', required=True, help='cifar10 | lsun | mnist')
 parser.add_argument('--dataroot', required=True, help='path to data')
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
 parser.add_argument('--imageSize', type=int, default=32, help='image size input')
@@ -45,7 +46,7 @@ if opt.dataset == 'mnist':
 	dataset = datasets.MNIST(root = opt.dataroot, train=True,download=True, 
 		transform=transforms.Compose([transforms.Resize(opt.imageSize), 
 			transforms.ToTensor(), 
-			transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))]))
+			transforms.Normalize((0.5,), (0.5,))]))
 
 elif opt.dataset == 'lsun': 
 	dataset = datasets.LSUN(root = opt.dataroot, train=True,download=True, 
@@ -129,7 +130,7 @@ class Discriminator(nn.Module):
 # weight initialization
 def init_weights(m): 
 	if type(m)==nn.Linear:
-		torch.nn.init.xavier_uniform(m.weight)
+		torch.nn.init.xavier_uniform_(m.weight)
 		m.bias.data.fill_(0.01)
 	
 
@@ -158,6 +159,8 @@ if cuda:
 	a_loss.cuda()
 	FT = torch.cuda.LongTensor
 	FT_a = torch.cuda.FloatTensor
+
+last_time = time.time()
 
 # training 
 for epoch in range(opt.epoch): 
@@ -214,11 +217,14 @@ for epoch in range(opt.epoch):
 
 
 		if i%100 == 0: 
-			vutils.save_image(gen_imgs, '%s/real_samples.png' % opt.output, normalize=True)
+			vutils.save_image(imgs, '%s/real_samples.png' % opt.output, normalize=True)
 			fake = generator(noise, gen_labels)
 			vutils.save_image(fake.detach(), '%s/fake_samples_epoch_%03d.png' % (opt.output, epoch), normalize=True)
 
-	print("[Epoch: %d/%d]" "[D loss: %f]" "[G loss: %f]" % (epoch+1, opt.epoch, d_loss.item(), g_loss.item()))
+	now = time.time()
+	used_time = f"{(now - last_time):.2f}s"
+	last_time = now
+	print("[Epoch: %d/%d]" "[D loss: %f]" "[G loss: %f] used time: %s" % (epoch+1, opt.epoch, d_loss.item(), g_loss.item(), used_time))
 	
 	# checkpoints 
 	torch.save(generator.state_dict(), '%s/generator_epoch_%d.pth' % (opt.output, epoch))
