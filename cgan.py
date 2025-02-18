@@ -2,6 +2,7 @@ import numpy as np
 import os 
 import time 
 import argparse
+import signal
 import torch 
 from torch.autograd import Variable
 import torchvision.transforms as transforms
@@ -138,8 +139,17 @@ def init_weights(m):
 	if type(m)==nn.Linear:
 		torch.nn.init.xavier_uniform_(m.weight)
 		m.bias.data.fill_(0.01)
-	
 
+need_quit_process = False
+
+def handle_signal(signum, frame):
+	global need_quit_process
+	need_quit_process = True
+	print(f'Received signal {signum}. Exiting gracefully.')
+
+signal.signal(signal.SIGINT, handle_signal)
+signal.signal(signal.SIGTERM, handle_signal)
+	
 # Building generator 
 generator = Generator()
 gen_optimizer = torch.optim.Adam(generator.parameters(), lr=opt.lrate, betas=(opt.beta, opt.beta1))
@@ -170,7 +180,13 @@ for epoch in range(opt.epoch):
 	last_gen_imgs = None
 	last_gen_labels = None
 
+	if need_quit_process:
+		break
+
 	for i, (imgs, labels) in enumerate(dataloader): 
+		if need_quit_process:
+			break
+			
 		batch_size = imgs.shape[0]
 
 		# convert img, labels into proper form 
@@ -234,8 +250,8 @@ for epoch in range(opt.epoch):
 	print("[Epoch: %d/%d]" "[D loss: %f]" "[G loss: %f] used time: %s" % (epoch+1, opt.epoch, d_loss.item(), g_loss.item(), used_time))
 	
 # checkpoints 
-torch.save(generator.state_dict(), '%s/generator_epoch_%d.pth' % (opt.output, epoch))
-torch.save(discriminator.state_dict(), '%s/generator_epoch_%d.pth' % (opt.output, epoch))
+torch.save(generator.state_dict(), '%s/generator_epoch.pth' % opt.output)
+torch.save(discriminator.state_dict(), '%s/discriminator_epoch.pth' % opt.output)
 
 
 
