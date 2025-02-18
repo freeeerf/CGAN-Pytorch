@@ -17,6 +17,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', required=True, help='cifar10 | lsun | mnist')
 parser.add_argument('--dataroot', required=True, help='path to data')
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
+parser.add_argument('--outputBatchSize', type=int, default=64, help='output batch size')
 parser.add_argument('--imageSize', type=int, default=32, help='image size input')
 parser.add_argument('--channels', type=int, default=1, help='number of channels')
 parser.add_argument('--latentdim', type=int, default=100, help='size of latent vector')
@@ -32,7 +33,12 @@ opt = parser.parse_args()
 
 img_shape = (opt.channels, opt.imageSize, opt.imageSize)
 
-cuda = True if torch.cuda.is_available() else False 
+device = torch.device(
+    "cuda" if torch.cuda.is_available() else
+    "mps" if torch.backends.mps.is_available() else
+    "cpu"
+)
+print('device:', device)
 
 os.makedirs(opt.output, exist_ok=True)
 
@@ -153,27 +159,27 @@ fake_label = 0.0
 FT = torch.LongTensor
 FT_a = torch.FloatTensor
 
-if cuda: 
-	generator.cuda()
-	discriminator.cuda()
-	a_loss.cuda()
-	FT = torch.cuda.LongTensor
-	FT_a = torch.cuda.FloatTensor
+generator.to(device)
+discriminator.to(device)
+a_loss.to(device)
 
 last_time = time.time()
 
 # training 
 for epoch in range(opt.epoch): 
+	last_gen_imgs = None
+	last_gen_labels = None
+
 	for i, (imgs, labels) in enumerate(dataloader): 
 		batch_size = imgs.shape[0]
 
 		# convert img, labels into proper form 
-		imgs = Variable(imgs.type(FT_a))
-		labels = Variable(labels.type(FT))
+		imgs = imgs.to(device)
+		labels = labels.to(device)
 	
 		# creating real and fake tensors of labels 
-		reall = Variable(FT_a(batch_size,1).fill_(real_label))
-		f_label = Variable(FT_a(batch_size,1).fill_(fake_label))
+		reall = torch.ones(batch_size, 1, device=device) * real_label
+		f_label = torch.ones(batch_size, 1, device=device) * fake_label
 
 		# initializing gradient
 		gen_optimizer.zero_grad() 
@@ -181,8 +187,8 @@ for epoch in range(opt.epoch):
 
 		#### TRAINING GENERATOR ####
 		# Feeding generator noise and labels 
-		noise = Variable(FT_a(np.random.normal(0, 1,(batch_size, opt.latentdim))))
-		gen_labels = Variable(FT(np.random.randint(0, opt.n_classes, batch_size)))
+		noise = torch.randn(batch_size, opt.latentdim, device=device)
+		gen_labels = torch.randint(0, opt.n_classes, (batch_size,), device=device)
 		
 		gen_imgs = generator(noise, gen_labels)
 		
@@ -215,20 +221,21 @@ for epoch in range(opt.epoch):
 		d_loss.backward()
 		d_optimizer.step()
 
+		last_gen_imgs = gen_imgs
+		last_gen_labels = gen_labels
 
-		if i%100 == 0: 
-			vutils.save_image(imgs, '%s/real_samples.png' % opt.output, normalize=True)
-			fake = generator(noise, gen_labels)
-			vutils.save_image(fake.detach(), '%s/fake_samples_epoch_%03d.png' % (opt.output, epoch), normalize=True)
-
+	if epoch%10 == 0: 
+		labels_str = ''.join(map(str, last_gen_labels[0:opt.outputBatchSize].tolist()))
+		vutils.save_image(last_gen_imgs[0:opt.outputBatchSize], '%s/samples_%03d_%s.png' % (opt.output, epoch, labels_str), normalize=True)
+		
 	now = time.time()
 	used_time = f"{(now - last_time):.2f}s"
 	last_time = now
 	print("[Epoch: %d/%d]" "[D loss: %f]" "[G loss: %f] used time: %s" % (epoch+1, opt.epoch, d_loss.item(), g_loss.item(), used_time))
 	
-	# checkpoints 
-	torch.save(generator.state_dict(), '%s/generator_epoch_%d.pth' % (opt.output, epoch))
-	torch.save(discriminator.state_dict(), '%s/generator_epoch_%d.pth' % (opt.output, epoch))
+# checkpoints 
+torch.save(generator.state_dict(), '%s/generator_epoch_%d.pth' % (opt.output, epoch))
+torch.save(discriminator.state_dict(), '%s/generator_epoch_%d.pth' % (opt.output, epoch))
 
 
 
