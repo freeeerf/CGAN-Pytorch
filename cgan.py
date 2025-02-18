@@ -12,6 +12,7 @@ from torchvision import datasets
 import torch.nn as nn
 import torch.nn.functional as F 
 import torchvision.utils as vutils
+from datetime import datetime
 
 
 parser = argparse.ArgumentParser()
@@ -247,7 +248,8 @@ for epoch in range(opt.epoch):
 	now = time.time()
 	used_time = f"{(now - last_time):.2f}s"
 	last_time = now
-	print("[Epoch: %d/%d]" "[D loss: %f]" "[G loss: %f] used time: %s" % (epoch+1, opt.epoch, d_loss.item(), g_loss.item(), used_time))
+	date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+	print("%s [Epoch: %d/%d]" "[D loss: %f]" "[G loss: %f] used time: %s" % (date_str, epoch+1, opt.epoch, d_loss.item(), g_loss.item(), used_time))
 	
 # checkpoints 
 torch.save(generator.state_dict(), '%s/generator_epoch.pth' % opt.output)
