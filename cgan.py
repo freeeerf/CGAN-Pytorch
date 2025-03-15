@@ -222,7 +222,7 @@ for epoch in range(opt.epoch):
 	
 	# checkpoints 
 	torch.save(generator.state_dict(), '%s/generator_epoch_%d.pth' % (opt.output, epoch))
-	torch.save(discriminator.state_dict(), '%s/generator_epoch_%d.pth' % (opt.output, epoch))
+	torch.save(discriminator.state_dict(), '%s/discriminator_epoch_%d.pth' % (opt.output, epoch))
 
 
 
