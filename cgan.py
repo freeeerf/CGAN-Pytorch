@@ -180,6 +180,7 @@ last_time = time.time()
 for epoch in range(opt.epoch): 
 	last_gen_imgs = None
 	last_gen_labels = None
+	last_total_loss = None
 
 	if need_quit_process:
 		break
@@ -240,16 +241,17 @@ for epoch in range(opt.epoch):
 
 		last_gen_imgs = gen_imgs
 		last_gen_labels = gen_labels
+		last_total_loss = (g_loss + d_loss).item()
 
 	if epoch%10 == 0: 
 		labels_str = ''.join(map(str, last_gen_labels[0:opt.outputBatchSize].tolist()))
-		vutils.save_image(last_gen_imgs[0:opt.outputBatchSize], '%s/samples_%03d_%s.png' % (opt.output, epoch, labels_str), normalize=True)
+		vutils.save_image(last_gen_imgs[0:opt.outputBatchSize], '%s/samples_%03d_%.3f_%s.png' % (opt.output, epoch, last_total_loss, labels_str), normalize=True)
 		
 	now = time.time()
 	used_time = f"{(now - last_time):.2f}s"
 	last_time = now
 	date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-	print("%s [Epoch: %d/%d]" "[D loss: %f]" "[G loss: %f] used time: %s" % (date_str, epoch+1, opt.epoch, d_loss.item(), g_loss.item(), used_time))
+	print("%s [Epoch: %d/%d]" "[D loss: %f]" "[G loss: %f] [Total loss: %f] used time: %s" % (date_str, epoch+1, opt.epoch, d_loss.item(), g_loss.item(), last_total_loss, used_time))
 	
 # checkpoints 
 torch.save(generator.state_dict(), '%s/generator_epoch.pth' % opt.output)
